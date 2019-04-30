@@ -8,46 +8,69 @@ var items = {};
 // Public API - Fix these CRUD functions ///////////////////////////////////////
 
 exports.create = (text, callback) => {
-  var id = counter.getNextUniqueId();
-  items[id] = text;
-  callback(null, { id, text });
+  counter.getNextUniqueId((error, id) => {
+    if (error) {
+      throw ('error getting new ID!');
+    } else {
+      fs.writeFile(`${exports.dataDir}/${id}.txt`, text, (err) => {
+        if (err) {
+          throw ('error saving text to file');
+        } else {
+          callback(null, { id, text });
+        }
+      });
+    }
+  });
 };
 
 exports.readAll = (callback) => {
-  var data = _.map(items, (text, id) => {
-    return { id, text };
+  fs.readdir(exports.dataDir, (err, files) => {
+    if (err) {
+      throw ('error reading directory');
+    } else {
+      var data = _.map(files, (filename) => (
+        { id: path.parse(filename).name, text: path.parse(filename).name }
+      ))
+      callback(null, data);
+    }
   });
-  callback(null, data);
 };
 
 exports.readOne = (id, callback) => {
-  var text = items[id];
-  if (!text) {
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    callback(null, { id, text });
-  }
+  fs.readFile(`${exports.dataDir}/${id}.txt`, 'utf8', (error, data) => {
+    if (error) {
+      callback(new Error(`No item with id: ${id}`));
+    } else {
+      callback(null, { id, text: data });
+    }
+  })
 };
 
 exports.update = (id, text, callback) => {
-  var item = items[id];
-  if (!item) {
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    items[id] = text;
-    callback(null, { id, text });
-  }
+  exports.readOne(id, (error, file) => {
+    if (error) {
+      callback(new Error(`No item with id: ${id}`));
+    } else {
+      fs.writeFile(`${exports.dataDir}/${id}.txt`, text, (error) => {
+        if (error) {
+          callback(new Error(`Cannot write to file!`));
+        } else {
+          callback(null, { id, text })
+        }
+      })
+    }
+  })
 };
 
+
 exports.delete = (id, callback) => {
-  var item = items[id];
-  delete items[id];
-  if (!item) {
-    // report an error if item not found
-    callback(new Error(`No item with id: ${id}`));
-  } else {
-    callback();
-  }
+  fs.unlink(`${exports.dataDir}/${id}.txt`, (error) => {
+    if (error) {
+      callback(new Error(`No item with id: ${id}`));
+    } else {
+      callback();
+    }
+  })
 };
 
 // Config+Initialization code -- DO NOT MODIFY /////////////////////////////////
